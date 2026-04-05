@@ -248,6 +248,13 @@ export default function App() {
     await updateDoc(doc(db, 'notes', id), { pinned: !current })
   }
 
+  const deleteSubject = async (id, name) => {
+  if (!window.confirm(`Tem certeza que quer deletar a matéria "${name}"? Essa ação não pode ser desfeita.`)) return
+  await deleteDoc(doc(db, 'subjects', id))
+  toast('Matéria deletada.')
+}
+
+
   const archiveSubject = async (id, current) => {
   await updateDoc(doc(db, 'subjects', id), { archived: !current })
   toast(current ? 'Matéria restaurada!' : 'Matéria arquivada!')
@@ -359,9 +366,14 @@ export default function App() {
           </span>
           <span onClick={e => { e.stopPropagation(); archiveSubject(sub.id, sub.archived) }}
           style={{ marginLeft: 4, fontSize: 12, opacity: 0.5, cursor: 'pointer' }}
-          title="Arquivar matéria">
-  🗄
-</span>
+          title="Arquivar matéria">🗄
+          </span>
+
+          <span onClick={e => { e.stopPropagation(); deleteSubject(sub.id, sub.name) }}
+          style={{ marginLeft: 2, fontSize: 12, opacity: 0.5, cursor: 'pointer' }}
+           title="Deletar matéria">🗑
+         </span>
+
           </div>
         ))}
 
