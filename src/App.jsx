@@ -168,6 +168,7 @@ export default function App() {
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newSubjectEmoji, setNewSubjectEmoji] = useState('📚')
   const [colorIdx, setColorIdx] = useState(3)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const aiEndRef = useRef(null)
 
   // Load subjects + notes from Firestore in real time
@@ -306,7 +307,7 @@ export default function App() {
       `}</style>
 
       {/* SIDEBAR */}
-      <aside style={{ width: 240, background: COLORS.surface, borderRight: '1px solid ' + COLORS.border, display: 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0 }}>
+      <aside style={{ width: 240, background: COLORS.surface, borderRight: '1px solid ' + COLORS.border, display: 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0, position: 'fixed', top: 0, left: sidebarOpen ? 0 : -240, height: '100vh', zIndex: 100, transition: 'left .25s ease' }}>
         <div style={{ padding: '0 8px 16px', borderBottom: '1px solid ' + COLORS.border, marginBottom: 8 }}>
           <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 18, fontWeight: 700, color: COLORS.accentLight }}>✦ facul.notes</div>
           <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>colaborativo • compartilhado</div>
@@ -324,14 +325,14 @@ export default function App() {
 
         <div className={'sidebar-item' + (view === 'notes' && !activeSubject ? ' active' : '')}
           style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}
-          onClick={() => { setActiveSubject(null); setView('notes') }}>
+          onClick={() => { setActiveSubject(null); setView('notes'); setSidebarOpen(false) }}>
           <span>🏠</span> Todas as notas
           <span style={{ marginLeft: 'auto', background: COLORS.border, borderRadius: 99, padding: '1px 8px', fontSize: 12 }}>{notes.length}</span>
         </div>
 
         <div className={'sidebar-item' + (view === 'ai-chat' ? ' active' : '')}
           style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}
-          onClick={() => setView('ai-chat')}>
+         onClick={() => { setView('ai-chat'); setSidebarOpen(false) }}>
           <span>🤖</span> Assistente IA
         </div>
 
@@ -341,7 +342,7 @@ export default function App() {
           <div key={sub.id}
             className={'sidebar-item' + (activeSubject === sub.id ? ' active' : '')}
             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}
-            onClick={() => { setActiveSubject(sub.id); setView('notes') }}>
+            onClick={() => { setActiveSubject(sub.id); setView('notes'); setSidebarOpen(false) }}>
             <span>{sub.emoji}</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub.name}</span>
             <span style={{ background: sub.color + '33', color: sub.color, borderRadius: 99, padding: '1px 8px', fontSize: 12 }}>
@@ -375,6 +376,10 @@ export default function App() {
           </button>
         )}
       </aside>
+      {sidebarOpen && (
+    <div onClick={() => setSidebarOpen(false)}
+     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99 }} />
+)}
 
       {/* MAIN */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -382,7 +387,11 @@ export default function App() {
         {view === 'notes' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '20px 28px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div>
+              <button onClick={() => setSidebarOpen(true)}
+              style={{ background: 'none', border: 'none', color: COLORS.text, fontSize: 22, cursor: 'pointer', padding: '0 8px 0 0', display: 'flex', alignItems: 'center' }}>
+    ☰
+              </button>
+           <div>
                 <h1 style={{ fontSize: 22, fontWeight: 700 }}>
                   {activeSubject ? (subjectOf(activeSubject)?.emoji + ' ' + subjectOf(activeSubject)?.name) : '📋 Todas as notas'}
                 </h1>
