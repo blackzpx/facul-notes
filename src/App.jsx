@@ -168,6 +168,7 @@ export default function App() {
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newSubjectEmoji, setNewSubjectEmoji] = useState('📚')
   const [colorIdx, setColorIdx] = useState(3)
+  const [showArchived, setShowArchived] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const aiEndRef = useRef(null)
 
@@ -216,6 +217,9 @@ export default function App() {
 
   const subjectOf = (id) => subjects.find(s => s.id === id)
 
+  const activeSubjects = subjects.filter(s => !s.archived)
+  const archivedSubjects = subjects.filter(s => s.archived)
+
   const openNewNote = () => {
     setEditingNote({ subjectId: activeSubject || subjects[0]?.id || '', title: '', content: '', author: session.username, createdAt: new Date().toISOString(), pinned: false, tags: [], isNew: true })
     setView('note-editor')
@@ -243,6 +247,11 @@ export default function App() {
   const togglePin = async (id, current) => {
     await updateDoc(doc(db, 'notes', id), { pinned: !current })
   }
+
+  const archiveSubject = async (id, current) => {
+  await updateDoc(doc(db, 'subjects', id), { archived: !current })
+  toast(current ? 'Matéria restaurada!' : 'Matéria arquivada!')
+}
 
   const addSubject = async () => {
     if (!newSubjectName.trim()) return
@@ -338,18 +347,44 @@ export default function App() {
 
         <div style={{ margin: '12px 0 6px', padding: '0 12px', fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '.08em', textTransform: 'uppercase' }}>Matérias</div>
 
-        {subjects.map(sub => (
+        {activeSubjects.map(sub => (
           <div key={sub.id}
             className={'sidebar-item' + (activeSubject === sub.id ? ' active' : '')}
             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}
             onClick={() => { setActiveSubject(sub.id); setView('notes'); setSidebarOpen(false) }}>
             <span>{sub.emoji}</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub.name}</span>
-            <span style={{ background: sub.color + '33', color: sub.color, borderRadius: 99, padding: '1px 8px', fontSize: 12 }}>
-              {notes.filter(n => n.subjectId === sub.id).length}
-            </span>
+           <span style={{ background: sub.color + '33', color: sub.color, borderRadius: 99, padding: '1px 8px', fontSize: 12 }}>
+          {notes.filter(n => n.subjectId === sub.id).length}
+          </span>
+          <span onClick={e => { e.stopPropagation(); archiveSubject(sub.id, sub.archived) }}
+          style={{ marginLeft: 4, fontSize: 12, opacity: 0.5, cursor: 'pointer' }}
+          title="Arquivar matéria">
+  🗄
+</span>
           </div>
         ))}
+
+        {archivedSubjects.length > 0 && (
+  <div>
+    <div onClick={() => setShowArchived(!showArchived)}
+      style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: COLORS.muted, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {showArchived ? '▾' : '▸'} Arquivadas ({archivedSubjects.length})
+    </div>
+    {showArchived && archivedSubjects.map(sub => (
+      <div key={sub.id}
+        style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, opacity: 0.5, borderRadius: 10 }}>
+        <span>{sub.emoji}</span>
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub.name}</span>
+        <span onClick={() => archiveSubject(sub.id, sub.archived)}
+          style={{ fontSize: 12, cursor: 'pointer', color: COLORS.accentLight }}
+          title="Restaurar matéria">
+          ↩
+        </span>
+      </div>
+    ))}
+  </div>
+)} 
 
         {showNewSubject ? (
           <div style={{ padding: 8, background: COLORS.card, borderRadius: 10, marginTop: 4 }}>
