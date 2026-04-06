@@ -229,10 +229,12 @@ export default function App() {
     if (!editingNote.title.trim()) { toast('Adicione um título!'); return }
     try {
       if (editingNote.isNew) {
-        const { isNew, ...note } = editingNote
-        await addDoc(collection(db, 'notes'), note)
+       const { isNew, ...note } = editingNote
+       note.tags = (note.tags || []).filter(t => t.trim() !== '')
+      await addDoc(collection(db, 'notes'), note)
       } else {
         const { id, isNew, ...note } = editingNote
+        note.tags = (note.tags || []).filter(t => t.trim() !== '')
         await updateDoc(doc(db, 'notes', editingNote.id), note)
       }
       setView('notes'); toast('Nota salva! 🎉')
@@ -464,7 +466,7 @@ export default function App() {
                 return (
                   <div key={note.id} className="note-card"
                     style={{ background: COLORS.card, border: '1px solid ' + (isOwn ? COLORS.accent + '55' : COLORS.border), borderRadius: 14, padding: '18px', position: 'relative' }}
-                    onClick={() => { setEditingNote({ ...note }); setView('note-editor') }}>
+                    onClick={() => { setEditingNote({ ...note, tags: (note.tags || []).filter(t => t.trim() !== '') }); setView('note-editor') }}>
                     {note.pinned && <span style={{ position: 'absolute', top: 14, right: 14, fontSize: 14 }}>📌</span>}
                     {sub && (
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: sub.color + '22', color: sub.color, borderRadius: 99, padding: '2px 10px', fontSize: 12, marginBottom: 10, fontWeight: 600 }}>
@@ -478,8 +480,10 @@ export default function App() {
                       <span>{formatDate(note.createdAt)}</span>
                     </div>
                     {note.tags?.length > 0 && (
-                      <div style={{ marginTop: 8 }}>{note.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>
-                    )}
+                     <div style={{ marginTop: 8 }}>{note.tags.map(t => (
+                      <span key={t} style={{ display: 'inline-block', background: (sub?.color || COLORS.accent) + '22', color: sub?.color || COLORS.accentLight, padding: '2px 10px', borderRadius: 99, fontSize: 12, margin: 2 }}>{t}</span>
+                     ))}</div>
+                       )}
                   </div>
                 )
               })}
@@ -515,19 +519,23 @@ export default function App() {
                 style={{ width: '100%', background: 'transparent', border: 'none', fontSize: 28, fontWeight: 700, color: COLORS.text, outline: 'none', marginBottom: 8 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
                 {editingNote.tags?.map(t => (
-                  <span key={t} className="tag" style={{ cursor: 'pointer' }}
-                    onClick={() => setEditingNote(p => ({ ...p, tags: p.tags.filter(x => x !== t) }))}>
-                    {t} ✕
+                <span key={t} style={{ cursor: 'pointer', display: 'inline-block', background: COLORS.accent + '22', color: COLORS.accentLight, padding: '2px 10px', borderRadius: 99, fontSize: 12, margin: 2 }}
+                 onClick={() => setEditingNote(p => ({ ...p, tags: p.tags.filter(x => x !== t) }))}>
+                   {t} ✕
                   </span>
-                ))}
+                   ))}
                 <input placeholder="+ tag (enter)"
                   style={{ background: 'transparent', border: 'none', color: COLORS.muted, fontSize: 13, outline: 'none', width: 130 }}
                   onKeyDown={e => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      setEditingNote(p => ({ ...p, tags: [...(p.tags || []), e.target.value.trim()] }))
-                      e.target.value = ''
-                    }
-                  }} />
+                          if (e.key === 'Enter') {
+                          const val = e.target.value.trim()
+                          if (val) {
+                          setEditingNote(p => ({ ...p, tags: [...(p.tags || []).filter(t => t.trim() !== ''), val] }))
+                          e.target.value = ''
+                                  }
+                      e.preventDefault()
+                   }
+                }} />
               </div>
               <textarea placeholder="Comece a escrever sua anotação aqui... ✍️"
                 value={editingNote.content}
