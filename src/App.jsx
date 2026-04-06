@@ -170,6 +170,12 @@ export default function App() {
   const [colorIdx, setColorIdx] = useState(3)
   const [showArchived, setShowArchived] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  useEffect(() => {
+  const handleResize = () => setIsMobile(window.innerWidth <= 768)
+  window.addEventListener('resize', handleResize)
+  return () => window.removeEventListener('resize', handleResize)
+}, [])
   const aiEndRef = useRef(null)
 
   // Load subjects + notes from Firestore in real time
@@ -325,7 +331,7 @@ export default function App() {
       `}</style>
 
       {/* SIDEBAR */}
-      <aside style={{ width: 240, background: COLORS.surface, borderRight: '1px solid ' + COLORS.border, display: 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0, position: 'fixed', top: 0, left: sidebarOpen ? 0 : -240, height: '100vh', zIndex: 100, transition: 'left .25s ease' }}>
+      <aside style={{ width: 240, background: COLORS.surface, borderRight: '1px solid ' + COLORS.border, display: 'flex', flexDirection: 'column', padding: '20px 12px', gap: 4, flexShrink: 0, position: 'fixed', top: 0, left: !isMobile ? 0 : sidebarOpen ? 0 : -240, height: '100vh', zIndex: 100, transition: 'left .25s ease' }}>
         <div style={{ padding: '0 8px 16px', borderBottom: '1px solid ' + COLORS.border, marginBottom: 8 }}>
           <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 18, fontWeight: 700, color: COLORS.accentLight }}>✦ facul.notes</div>
           <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>colaborativo • compartilhado</div>
@@ -431,7 +437,7 @@ export default function App() {
 )}
 
       {/* MAIN */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginLeft: !isMobile  ? 240 : 0 }}>
 
         {view === 'notes' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
