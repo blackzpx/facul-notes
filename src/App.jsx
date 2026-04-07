@@ -24,6 +24,8 @@ async function hashPassword(password) {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+//----------------- ADMIN______________________-
+const ADMIN_USER = 'antonio'
 // ── Netlify AI proxy ──────────────────────────────────────────────────────────
 async function callAI(system, userMessage) {
   const res = await fetch('/api/ai', {
@@ -67,20 +69,24 @@ function AuthScreen({ onLogin }) {
       if (mode === 'register') {
         if (password !== confirmPassword) { setLoading(false); return showError('As senhas não coincidem.') }
         if (userSnap.exists()) { setLoading(false); return showError('Usuário já existe. Faça login.') }
-        await setDoc(userRef, { username: username.trim(), hash, createdAt: new Date().toISOString() })
-        const session = { username: username.trim(), key }
-        localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session))
-        onLogin(session)
+        await setDoc(userRef, { username: username.trim(), hash, createdAt: new Date().toISOString(), status: 'pendente' })
+        setLoading(false)
+        showError('Conta criada! Aguarde a aprovação do admin para entrar.')
+        setMode('login')
       } else {
         if (!userSnap.exists()) { setLoading(false); return showError('Usuário não encontrado. Crie uma conta.') }
         if (userSnap.data().hash !== hash) { setLoading(false); return showError('Senha incorreta.') }
+        if (userSnap.data().status === 'pendente') { setLoading(false); return showError('Sua conta ainda não foi aprovada. Aguarde o admin.') }
+        if (userSnap.data().status === 'rejeitado') { setLoading(false); return showError('Sua conta foi rejeitada. Entre em contato com o admin.') }
+        if (userSnap.data().status && userSnap.data().status !== 'aprovado') { setLoading(false); return showError('Status de conta inválido.') }
         const session = { username: userSnap.data().username, key }
         localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session))
         onLogin(session)
       }
-    } catch (e) {
-      showError('Erro de conexão. Tente novamente.')
-    }
+   } catch (e) {
+  console.error('Erro login:', e)
+  showError('Erro de conexão. Tente novamente.')
+}
     setLoading(false)
   }
 
@@ -169,6 +175,16 @@ export default function App() {
   const [newSubjectEmoji, setNewSubjectEmoji] = useState('📚')
   const [colorIdx, setColorIdx] = useState(3)
   const [showArchived, setShowArchived] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const textareaRef = useRef(null)
+
+useEffect(() => {
+  if (textareaRef.current) {
+    textareaRef.current.style.height = 'auto'
+    textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px'
+  }
+}, [editingNote?.id])
+  const [pendingUsers, setPendingUsers] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   useEffect(() => {
@@ -255,6 +271,28 @@ export default function App() {
   const togglePin = async (id, current) => {
     await updateDoc(doc(db, 'notes', id), { pinned: !current })
   }
+   
+  const loadPendingUsers = async () => {
+  const usersSnap = await getDocs(collection(db, 'users'))
+  const pending = usersSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(u => u.status === 'pendente')
+  setPendingUsers(pending)
+  setShowAdminPanel(true)
+}
+
+const approveUser = async (key) => {
+  await updateDoc(doc(db, 'users', key), { status: 'aprovado' })
+  setPendingUsers(prev => prev.filter(u => u.id !== key))
+  toast('Usuário aprovado! ✅')
+}
+
+const rejectUser = async (key) => {
+  await updateDoc(doc(db, 'users', key), { status: 'rejeitado' })
+  setPendingUsers(prev => prev.filter(u => u.id !== key))
+  toast('Usuário rejeitado.')
+}
+
 
   const deleteSubject = async (id, name) => {
   if (!window.confirm(`Tem certeza que quer deletar a matéria "${name}"? Essa ação não pode ser desfeita.`)) return
@@ -343,7 +381,14 @@ export default function App() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.username}</div>
-            <button onClick={logout} style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>sair</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+             <button onClick={logout} style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>sair</button>
+             {session.username === ADMIN_USER && (
+            <button onClick={loadPendingUsers} style={{ background: 'none', border: 'none', color: COLORS.accentLight, fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+            👑 admin
+           </button>
+             )}
+           </div>
           </div>
         </div>
 
@@ -498,7 +543,7 @@ export default function App() {
         )}
 
         {view === 'note-editor' && editingNote && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
             <div style={{ padding: '16px 28px', borderBottom: '1px solid ' + COLORS.border, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn" onClick={() => setView('notes')} style={{ background: COLORS.border, color: COLORS.muted, padding: '6px 14px', borderRadius: 8 }}>← Voltar</button>
               <select value={editingNote.subjectId} onChange={e => setEditingNote(p => ({ ...p, subjectId: e.target.value }))}
@@ -544,6 +589,7 @@ export default function App() {
                 }} />
               </div>
               <textarea placeholder="Comece a escrever sua anotação aqui... ✍️"
+                ref={textareaRef}
                 value={editingNote.content}
                 onChange={e => setEditingNote(p => ({ ...p, content: e.target.value }))}
                 style={{ width: '100%', minHeight: 400, background: 'transparent', border: 'none', color: COLORS.text, fontSize: 15, lineHeight: 1.8, outline: 'none', resize: 'none' }} />
@@ -584,6 +630,39 @@ export default function App() {
           </div>
         )}
       </main>
+      
+
+       {showAdminPanel && (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ background: COLORS.surface, border: '1px solid ' + COLORS.border, borderRadius: 16, padding: 28, width: 400, maxWidth: '90vw' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>👑 Painel Admin</h2>
+        <button onClick={() => setShowAdminPanel(false)} style={{ background: 'none', border: 'none', color: COLORS.muted, fontSize: 20, cursor: 'pointer' }}>✕</button>
+      </div>
+      {pendingUsers.length === 0 ? (
+        <div style={{ textAlign: 'center', color: COLORS.muted, padding: '20px 0' }}>Nenhum usuário pendente 🎉</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pendingUsers.map(u => (
+            <div key={u.id} style={{ background: COLORS.card, border: '1px solid ' + COLORS.border, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{u.username}</div>
+                <div style={{ fontSize: 12, color: COLORS.muted }}>{new Date(u.createdAt).toLocaleDateString('pt-BR')}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => approveUser(u.id)} style={{ background: '#4ade8022', color: '#4ade80', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✓ Aprovar</button>
+                <button onClick={() => rejectUser(u.id)} style={{ background: COLORS.red + '22', color: COLORS.red, border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✕ Rejeitar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+
+
 
       {toastMsg && <div className="toast">{toastMsg}</div>}
     </div>
